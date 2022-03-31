@@ -1,21 +1,13 @@
 import { createElement } from 'lwc';
 import ProductTileList from 'c/productTileList';
-import { fireEvent } from 'c/pubsub';
 import {
     registerTestWireAdapter,
     registerApexTestWireAdapter
-} from '@salesforce/lwc-jest';
+} from '@salesforce/sfdx-lwc-jest';
+import { publish, MessageContext } from 'lightning/messageService';
+import PRODUCTS_FILTERED_MESSAGE from '@salesforce/messageChannel/ProductsFiltered__c';
+import PRODUCT_SELECTED_MESSAGE from '@salesforce/messageChannel/ProductSelected__c';
 import getProducts from '@salesforce/apex/ProductController.getProducts';
-import { CurrentPageReference } from 'lightning/navigation';
-
-// Mock out the pubsub lib and use these mocks to verify how functions were called
-jest.mock('c/pubsub', () => {
-    return {
-        fireEvent: jest.fn(),
-        registerListener: jest.fn(),
-        unregisterAllListeners: jest.fn()
-    };
-});
 
 // Realistic data with multiple records
 const mockGetProducts = require('./data/getProducts.json');
@@ -28,7 +20,7 @@ const getProductsAdapter = registerApexTestWireAdapter(getProducts);
 
 // Register as a standard wire adapter because the component under test requires this adapter.
 // We don't exercise this wire adapter in the tests.
-registerTestWireAdapter(CurrentPageReference);
+registerTestWireAdapter(MessageContext);
 
 describe('c-product-tile-list', () => {
     afterEach(() => {
@@ -48,9 +40,8 @@ describe('c-product-tile-list', () => {
 
             // Return a promise to wait for any asynchronous DOM updates.
             return Promise.resolve().then(() => {
-                const paginator = element.shadowRoot.querySelector(
-                    'c-paginator'
-                );
+                const paginator =
+                    element.shadowRoot.querySelector('c-paginator');
                 expect(paginator).not.toBeNull();
 
                 // paginator text will look something like: "12 items • page 1 of 2"
@@ -76,17 +67,15 @@ describe('c-product-tile-list', () => {
 
             return Promise.resolve()
                 .then(() => {
-                    const paginator = element.shadowRoot.querySelector(
-                        'c-paginator'
-                    );
+                    const paginator =
+                        element.shadowRoot.querySelector('c-paginator');
                     paginator.dispatchEvent(new CustomEvent('next'));
                 })
                 .then(() => {
                     // DOM is updated after event is fired so need to wait
                     // another microtask for the rerender
-                    const paginator = element.shadowRoot.querySelector(
-                        'c-paginator'
-                    );
+                    const paginator =
+                        element.shadowRoot.querySelector('c-paginator');
                     const currentPage =
                         parseInt(mockGetProducts.pageNumber, 10) + 1;
                     const regex = new RegExp(
@@ -97,9 +86,8 @@ describe('c-product-tile-list', () => {
                     paginator.dispatchEvent(new CustomEvent('previous'));
                 })
                 .then(() => {
-                    const paginator = element.shadowRoot.querySelector(
-                        'c-paginator'
-                    );
+                    const paginator =
+                        element.shadowRoot.querySelector('c-paginator');
                     // we're back to the original page number now
                     const regex = new RegExp(
                         `page ${mockGetProducts.pageNumber} of ${totalPages}$`
@@ -118,9 +106,8 @@ describe('c-product-tile-list', () => {
             // Return a promise to wait for any asynchronous DOM updates.
             return Promise.resolve()
                 .then(() => {
-                    const paginator = element.shadowRoot.querySelector(
-                        'c-paginator'
-                    );
+                    const paginator =
+                        element.shadowRoot.querySelector('c-paginator');
                     paginator.dispatchEvent(new CustomEvent('next'));
                 })
                 .then(() => {
@@ -139,14 +126,13 @@ describe('c-product-tile-list', () => {
             getProductsAdapter.emit(mockGetProducts);
 
             return Promise.resolve().then(() => {
-                const productTiles = element.shadowRoot.querySelectorAll(
-                    'c-product-tile'
-                );
+                const productTiles =
+                    element.shadowRoot.querySelectorAll('c-product-tile');
                 expect(productTiles).toHaveLength(recordCount);
             });
         });
 
-        it('fires productSelected event when c-product-tile selected', () => {
+        it('sends productSelected event when c-product-tile selected', () => {
             const element = createElement('c-product-tile-list', {
                 is: ProductTileList
             });
@@ -154,14 +140,13 @@ describe('c-product-tile-list', () => {
             getProductsAdapter.emit(mockGetProducts);
 
             return Promise.resolve().then(() => {
-                const productTile = element.shadowRoot.querySelector(
-                    'c-product-tile'
-                );
+                const productTile =
+                    element.shadowRoot.querySelector('c-product-tile');
                 productTile.dispatchEvent(new CustomEvent('selected'));
-                expect(fireEvent).toHaveBeenCalledWith(
+                expect(publish).toHaveBeenCalledWith(
                     undefined,
-                    'productSelected',
-                    null
+                    PRODUCT_SELECTED_MESSAGE,
+                    { productId: null }
                 );
             });
         });
@@ -176,9 +161,8 @@ describe('c-product-tile-list', () => {
             getProductsAdapter.emit(mockGetProductsNoRecords);
 
             return Promise.resolve().then(() => {
-                const paginator = element.shadowRoot.querySelector(
-                    'c-paginator'
-                );
+                const paginator =
+                    element.shadowRoot.querySelector('c-paginator');
                 expect(paginator).toBeNull();
             });
         });
@@ -193,9 +177,8 @@ describe('c-product-tile-list', () => {
             getProductsAdapter.emit(mockGetProductsNoRecords);
 
             return Promise.resolve().then(() => {
-                const placeholder = element.shadowRoot.querySelector(
-                    'c-placeholder'
-                );
+                const placeholder =
+                    element.shadowRoot.querySelector('c-placeholder');
                 expect(placeholder.shadowRoot.textContent).toBe(expected);
             });
         });
@@ -213,21 +196,17 @@ describe('c-product-tile-list', () => {
             getProductsAdapter.error();
             return Promise.resolve()
                 .then(() => {
-                    const inlineMessage = element.shadowRoot.querySelector(
-                        'c-inline-message'
-                    );
-                    // check the "Show Details" checkbox to render additional error messages
-                    const lightningInput = inlineMessage.shadowRoot.querySelector(
-                        'lightning-input'
-                    );
-                    lightningInput.checked = true;
-                    lightningInput.dispatchEvent(new CustomEvent('change'));
+                    const errorPanel =
+                        element.shadowRoot.querySelector('c-error-panel');
+                    // Click the "Show Details" link to render additional error messages
+                    const lightningInput =
+                        errorPanel.shadowRoot.querySelector('a');
+                    lightningInput.dispatchEvent(new CustomEvent('click'));
                 })
                 .then(() => {
-                    const inlineMessage = element.shadowRoot.querySelector(
-                        'c-inline-message'
-                    );
-                    const text = inlineMessage.shadowRoot.textContent;
+                    const errorPanel =
+                        element.shadowRoot.querySelector('c-error-panel');
+                    const text = errorPanel.shadowRoot.textContent;
                     expect(text).toContain(defaultError);
                 });
         });
@@ -246,9 +225,8 @@ describe('c-product-tile-list', () => {
 
             return Promise.resolve()
                 .then(() => {
-                    const searchBar = element.shadowRoot.querySelector(
-                        '.search-bar'
-                    );
+                    const searchBar =
+                        element.shadowRoot.querySelector('.search-bar');
                     searchBar.value = input;
                     searchBar.dispatchEvent(new CustomEvent('change'));
                 })
@@ -257,5 +235,59 @@ describe('c-product-tile-list', () => {
                     expect(filters).toEqual(expected);
                 });
         });
+    });
+
+    describe('with filter changes', () => {
+        it('updates product list when filters change', () => {
+            const element = createElement('c-product-tile-list', {
+                is: ProductTileList
+            });
+            document.body.appendChild(element);
+
+            // Simulate filter change
+            const mockMessage = {
+                filters: { searchKey: 'mockValue', maxPrice: 666 }
+            };
+            publish(null, PRODUCTS_FILTERED_MESSAGE, mockMessage);
+
+            // Check that wire gets called with new filters
+            return Promise.resolve().then(() => {
+                const { filters } = getProductsAdapter.getLastConfig();
+                expect(filters).toEqual(mockMessage.filters);
+            });
+        });
+    });
+
+    it('is accessible when products returned', () => {
+        const element = createElement('c-product-tile-list', {
+            is: ProductTileList
+        });
+
+        document.body.appendChild(element);
+        getProductsAdapter.emit(mockGetProducts);
+
+        return Promise.resolve().then(() => expect(element).toBeAccessible());
+    });
+
+    it('is accessible when no products returned', () => {
+        const element = createElement('c-product-tile-list', {
+            is: ProductTileList
+        });
+
+        document.body.appendChild(element);
+        getProductsAdapter.emit(mockGetProductsNoRecords);
+
+        return Promise.resolve().then(() => expect(element).toBeAccessible());
+    });
+
+    it('is accessible when error returned', () => {
+        const element = createElement('c-product-tile-list', {
+            is: ProductTileList
+        });
+
+        document.body.appendChild(element);
+        getProductsAdapter.error();
+
+        return Promise.resolve().then(() => expect(element).toBeAccessible());
     });
 });

@@ -23,9 +23,8 @@ describe('c-product-list-item', () => {
         };
         document.body.appendChild(element);
 
-        const lightningButton = element.shadowRoot.querySelector(
-            'lightning-button'
-        );
+        const lightningButton =
+            element.shadowRoot.querySelector('lightning-button');
         lightningButton.click();
 
         const { pageReference } = getNavigateCalledWith();
@@ -33,5 +32,21 @@ describe('c-product-list-item', () => {
         // type and sent the expected recordId defined above
         expect(pageReference.type).toBe('standard__recordPage');
         expect(pageReference.attributes.recordId).toBe(expectedId);
+    });
+
+    it('is accessible', () => {
+        const element = createElement('c-product-list-item', {
+            is: ProductListItem
+        });
+
+        element.product = {
+            Id: 'expectedId',
+            Picture_URL__c: 'https://salesforce.com',
+            Name: 'Foo',
+            MSRP__c: 1000
+        };
+        document.body.appendChild(element);
+
+        return Promise.resolve().then(() => expect(element).toBeAccessible());
     });
 });

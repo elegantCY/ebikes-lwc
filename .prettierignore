@@ -4,4 +4,8 @@
 
 lcc-react-js-bike-model/
 **/staticresources/**
+.localdevserver
 .sfdx
+.vscode
+jsconfig.json
+coverage/
